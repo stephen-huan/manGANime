@@ -1,0 +1,6 @@
+# video to pictures (1 fps)
+ffmpeg -i video.webm -vf fps=1 image-%03d.png
+
+# picture to videos 
+ffmpeg -framerate 1 -i image-%03d.png video.webm
+
