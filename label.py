@@ -1,7 +1,7 @@
 import os
 import tkinter as tk
 from tkinter import filedialog as fd
-from PIL import Image, ImageTk, ImageSequence
+from PIL import Image, ImageTk
 import pims
 import numpy as np
 
@@ -11,7 +11,11 @@ ANIME, MANGA = f"{DATA}/anime", f"{DATA}/manga"
 def set_image(label: tk.Label, img: Image, scale: float=0.5) -> None:
     """ Change which image a label shows. """
     x, y = img.size
-    img.thumbnail((int(x*scale), int(y*scale)))
+    # upscale for preprocessed, resized images
+    if max(x, y) < 600:
+        img = img.resize((int(x/scale), int(y/scale)))
+    else:
+        img.thumbnail((int(x*scale), int(y*scale)))
     render = ImageTk.PhotoImage(img)
     label.configure(image=render)
     label.image = render
@@ -73,6 +77,9 @@ class Window(tk.Frame):
         self.anime_box.grid(row=3, column=6)
         self.anime_frame = tk.Label(self, text="/???")
         self.anime_frame.grid(row=3, column=7)
+        self.anime_step = tk.Entry(self, width=5)
+        self.anime_step.insert(0, "1")
+        self.anime_step.grid(row=3, column=8)
 
     def move(self, name: str, i: int):
         """ Change the position of the viewer. """
@@ -88,7 +95,8 @@ class Window(tk.Frame):
         """ Implement < and > control buttons. """
         def func():
             stream = getattr(self, name)
-            i = bound(getattr(self, name + "_i") + d, len(stream) - 1)
+            step = int(self.anime_step.get()) if name == "anime" else 1
+            i = bound(getattr(self, name + "_i") + d*step, len(stream) - 1)
             self.move(name, i)
         return func
 
@@ -96,7 +104,7 @@ class Window(tk.Frame):
         """ Implement typing a frame number into a textbox."""
         stream = getattr(self, name)
         try:
-            i = bound(int(getattr(self, name + "_box").get()), len(stream) - 1)
+            i = bound(int(getattr(self, name + "_box").get()) - 1, len(stream) - 1)
             self.move(name, i)
         except ValueError:
             print("Not a number!")
@@ -105,7 +113,7 @@ class Window(tk.Frame):
         """ Load an anime. """
         print(f"Select an anime file")
         # path = fd.askopenfilename(initialdir=DATA)
-        path = "/Users/stephenhuan/datasets/japan/anime/glt/Shoujo Shuumatsu Ryokou 1x01.mkv"
+        path = "data/anime/glt/0.mp4"
         print(f"The file you selected was: {path}")
         self.anime_path = path
         self.anime_btn["text"] = f"anime_path: {path}"
@@ -119,7 +127,7 @@ class Window(tk.Frame):
         """ Load a manga. """
         print(f"Select an manga folder")
         # path = fd.askdirectory(initialdir=DATA)
-        path = "/Users/stephenhuan/datasets/japan/manga/glt/vol1"
+        path = "preprocess/manga/kon/vol4"
         print(f"The folder you selected was: {path}")
         self.manga_path = path
         self.manga_btn["text"] = f"manga_path: {path}"
