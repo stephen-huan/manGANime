@@ -1,5 +1,6 @@
 import argparse, os, subprocess, glob, json
 import pims
+import av
 import skimage
 from skimage import io
 from skimage.transform import resize
@@ -9,7 +10,10 @@ import numpy as np
 # https://docs.opencv.org/master/dd/d43/tutorial_py_video_display.html
 
 MANGA_SIZE = 256
-EXT = "png"
+MANGA_EXT  = "png"
+ANIME_SIZE = 256
+ANIME_EXT  = "mp4"
+ANIME_FPS  = 24
 
 def save_mp4(path: str, i: int, ext: str) -> None:
     """ Saves data into the mp4 format. """
@@ -21,38 +25,94 @@ def change_ext(args) -> None:
     for i, path in enumerate(sorted(glob.glob(args.path))):
         save_mp4(path, i, args.format)
 
-def process_manga(args):
-    frames = pims.open(args.path)
-    folder = "/".join(args.path.split("/")[:-1])
-    config = json.load(open(f"{folder}/config.json"))
+def save_video(fname: str, video, fps: int=ANIME_FPS) -> None:
+    """ Saves a pims video as a mp4 file.
+    https://pyav.org/docs/develop/cookbook/numpy.html#generating-video """
+    container = av.open(fname, mode="w")
+    stream = container.add_stream("mpeg4", rate=fps)
+    stream.width, stream.height = video.frame_shape[:2][::-1]
+    for img in video:
+        frame = av.VideoFrame.from_ndarray(img)
+        for packet in stream.encode(frame):
+            container.mux(packet)
+    for packet in stream.encode():
+        container.mux(packet)
+    container.close()
+
+@pims.pipeline
+def to_ubyte(img: np.array):
+    """ Converts an image to a integer array between 0 and 255. """
+    # convert image to unsigned int, avoid rounding error by clipping
+    return skimage.img_as_ubyte(np.clip(img/255, 0, 1))
+
+def transform(transformations: list, frames):
+    """ Apply transformations to a given pims sequence. """
+    for t in transformations:
+        frames = t(frames)
+    return frames
+
+def transform_manga(config: dict, frames):
+    """ Apply transformations to a sequence of manga pages. """
     # crop whitespace from the edges
     # top, bottom, left, right, color things
     box = config["crop"]
-    frames = pims.process.crop(frames, ((box[0], box[1]), (box[2], box[3]), (0, 0)))
-    # apply greyscale transformation
-    frames = pims.as_grey(frames)
-    # resize images
-    size = pims.pipeline(lambda img: resize(img, (MANGA_SIZE, MANGA_SIZE)))
-    frames = size(frames)
+    trans = [lambda frames: pims.process.crop(frames,
+                            ((box[0], box[1]), (box[2], box[3]), (0, 0))),
+             # apply greyscale transformation
+             pims.as_grey,
+             # resize images
+             pims.pipeline(lambda img: resize(img, (MANGA_SIZE, MANGA_SIZE))),
+             to_ubyte
+            ]
+    return transform(trans, frames)
 
-    # convert image to unsigned int, avoid rounding error by using image max
-    scale = lambda img: skimage.img_as_ubyte(img/max(255, np.max(img)))
-    frames = pims.pipeline(scale)(frames)
+def transform_anime(global_config: dict, video_config: dict, video):
+    """ Apply transformations to an anime video. """
+    # exclude certain ranges of indexes 
+    exclude = set(x for r in video_config["exclude"]
+                  for x in range(r[0], r[1] + 1))
+    indexes = sorted(set(range(len(video))) - set(exclude))
+    # take every stride-th frame
+    video = video[indexes][::global_config["stride"]]
 
-    # show image
-    # Image.fromarray(frames[14]).show()
+    trans = [pims.pipeline(lambda img: resize(img, (ANIME_SIZE, ANIME_SIZE))),
+             pims.pipeline(skimage.img_as_ubyte)
+            ]
+    return transform(trans, video)
 
+def process_manga(args):
+    folder = "/".join(args.path.split("/")[:-1])
+    config = json.load(open(f"{folder}/config.json"))
     # create folders with the same structure if they don't exist
     data_folder = folder.replace("data", "preprocess")
     os.makedirs(data_folder, exist_ok=True)
-
     # remove old images
-    for fname in glob.glob(f"{data_folder}/*.{EXT}"):
+    for fname in glob.glob(f"{data_folder}/*.{MANGA_EXT}"):
         os.remove(fname)
+
+    frames = transform_manga(config, pims.open(args.path))
+    # show image
+    # Image.fromarray(frames[14]).show()
 
     for i in range(config.get("start", 0), len(frames) - config.get("end", 0)):
         if i not in config.get("exclude", []):
-            io.imsave(f"{data_folder}/{i}.{EXT}", frames[i])
+            io.imsave(f"{data_folder}/{i}.{MANGA_EXT}", frames[i])
+
+def process_anime(args):
+    folder = "/".join(args.path.split("/")[:-1])
+    config = json.load(open(f"{folder}/config.json"))
+    # create folders with the same structure if they don't exist
+    data_folder = folder.replace("data", "preprocess")
+    os.makedirs(data_folder, exist_ok=True)
+    # remove old videos
+    for fname in glob.glob(f"{data_folder}/*.{ANIME_EXT}"):
+        os.remove(fname)
+
+    for fname in glob.glob(args.path):
+        name = fname.split("/")[-1].split(".")[0]
+        if name == "0":
+            video = transform_anime(config, config[name], pims.open(fname))
+            save_video(f"{data_folder}/{name}.{ANIME_EXT}", video)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Basic data manipulation.")
@@ -65,8 +125,12 @@ if __name__ == "__main__":
     reformat.set_defaults(func=change_ext)
 
     manga = subparsers.add_parser("manga", help="preprocess a manga folder")
-    manga.add_argument("-p", "--path", help="folder containing a series of PNGs")
+    manga.add_argument("-p", "--path", help="folder containing a series of image files")
     manga.set_defaults(func=process_manga)
+
+    anime = subparsers.add_parser("anime", help="preprocess an anime folder")
+    anime.add_argument("-p", "--path", help="folder containing a series of video files")
+    anime.set_defaults(func=process_anime)
 
     args = parser.parse_args()
     if "func" in args:
