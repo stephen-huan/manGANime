@@ -4,3 +4,6 @@ ffmpeg -i video.webm -vf fps=1 image-%03d.png
 # picture to videos 
 ffmpeg -framerate 1 -i image-%03d.png video.webm
 
+# resize video
+ffmpeg -i 0.mp4 -vf scale=256:256,setsar=1:1 test.mp4
+

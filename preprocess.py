@@ -5,9 +5,10 @@ import skimage
 from skimage import io
 from skimage.transform import resize
 from PIL import Image
+import cv2 as cv
 import numpy as np
-
-# https://docs.opencv.org/master/dd/d43/tutorial_py_video_display.html
+import torch
+from torchvision import transforms
 
 MANGA_SIZE = 256
 MANGA_EXT  = "png"
@@ -27,17 +28,12 @@ def change_ext(args) -> None:
 
 def save_video(fname: str, video, fps: int=ANIME_FPS) -> None:
     """ Saves a pims video as a mp4 file.
-    https://pyav.org/docs/develop/cookbook/numpy.html#generating-video """
-    container = av.open(fname, mode="w")
-    stream = container.add_stream("mpeg4", rate=fps)
-    stream.width, stream.height = video.frame_shape[:2][::-1]
+    https://docs.opencv.org/master/dd/d43/tutorial_py_video_display.html """
+    fourcc = cv.VideoWriter_fourcc(*"avc1")
+    out = cv.VideoWriter(fname, fourcc, fps, video[0].shape[:2][::-1])
     for img in video:
-        frame = av.VideoFrame.from_ndarray(img)
-        for packet in stream.encode(frame):
-            container.mux(packet)
-    for packet in stream.encode():
-        container.mux(packet)
-    container.close()
+        out.write(cv.cvtColor(img, cv.COLOR_RGB2BGR))
+    out.release()
 
 @pims.pipeline
 def to_ubyte(img: np.array):
@@ -66,19 +62,42 @@ def transform_manga(config: dict, frames):
             ]
     return transform(trans, frames)
 
-def transform_anime(global_config: dict, video_config: dict, video):
-    """ Apply transformations to an anime video. """
+def preprocess_anime(global_config: dict, video_config: dict, video):
+    """ Apply initial transformations to an anime video. """
     # exclude certain ranges of indexes 
     exclude = set(x for r in video_config["exclude"]
                   for x in range(r[0], r[1] + 1))
     indexes = sorted(set(range(len(video))) - set(exclude))
     # take every stride-th frame
+    global_config["stride"] = 1000
     video = video[indexes][::global_config["stride"]]
 
+    return video
+
+def pims_transform_anime(global_config: dict, video_config: dict, video):
+    """ Apply transformations to an anime video, using pims pipelines. """
+    video = preprocess_anime(global_config, video_config, video)
     trans = [pims.pipeline(lambda img: resize(img, (ANIME_SIZE, ANIME_SIZE))),
              pims.pipeline(skimage.img_as_ubyte)
             ]
     return transform(trans, video)
+
+def torch_transform_anime(global_config: dict, video_config: dict, video):
+    """ Apply transformations to an anime video, using torch methods. """
+    video = preprocess_anime(global_config, video_config, video)
+    trans = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((ANIME_SIZE, ANIME_SIZE)),
+    ])
+    return [np.asarray(trans(frame)) for frame in video]
+
+def pillow_transform_anime(global_config: dict, video_config: dict, video):
+    """ Apply transformations to an anime video, using pillow methods. """
+    video = preprocess_anime(global_config, video_config, video)
+    return [np.asarray(Image.fromarray(frame).resize((ANIME_SIZE, ANIME_SIZE)))
+            for frame in video]
+
+transform_anime = torch_transform_anime # which backend to use
 
 def process_manga(args):
     folder = "/".join(args.path.split("/")[:-1])
@@ -110,9 +129,8 @@ def process_anime(args):
 
     for fname in glob.glob(args.path):
         name = fname.split("/")[-1].split(".")[0]
-        if name == "0":
-            video = transform_anime(config, config[name], pims.open(fname))
-            save_video(f"{data_folder}/{name}.{ANIME_EXT}", video)
+        video = transform_anime(config, config[name], pims.open(fname))
+        save_video(f"{data_folder}/{name}.{ANIME_EXT}", video)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Basic data manipulation.")
@@ -133,6 +151,15 @@ if __name__ == "__main__":
     anime.set_defaults(func=process_anime)
 
     args = parser.parse_args()
+
+    # run on multiple GPUs if possible, defaulting to CPU
+    CUDA = torch.cuda.is_available()
+    device = torch.device("cuda" if CUDA else "cpu")
+    if CUDA:
+        print(f"torch using {torch.cuda.device_count()} GPUs")
+    else:
+        print("torch running on CPU")
+
     if "func" in args:
         args.func(args)
 
