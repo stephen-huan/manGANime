@@ -1,4 +1,4 @@
-import os
+import os, json
 import tkinter as tk
 from tkinter import filedialog as fd
 from PIL import Image, ImageTk
@@ -7,6 +7,12 @@ import numpy as np
 
 DATA = "data"
 ANIME, MANGA = f"{DATA}/anime", f"{DATA}/manga"
+
+if os.path.exists("config.json"):
+    with open("config.json") as f:
+        config = json.load(f)
+else:
+    config = {}
 
 def set_image(label: tk.Label, img: Image, scale: float=0.5) -> None:
     """ Change which image a label shows. """
@@ -45,6 +51,14 @@ class Window(tk.Frame):
         self.manga_btn = tk.Button(self, text="manga_path: N/A",
                                command=self.change_manga)
         self.manga_btn.grid(row=1, column=0)
+
+        # save buttons
+        self.save_anime_btn = tk.Button(self, text="save frame",
+                                        command=self.save("anime"))
+        self.save_anime_btn.grid(row=0, column=1)
+        self.save_manga_btn = tk.Button(self, text="save page",
+                                        command=self.save("manga"))
+        self.save_manga_btn.grid(row=1, column=1)
 
         # image displays
         self.manga_img = tk.Label(self)
@@ -109,11 +123,18 @@ class Window(tk.Frame):
         except ValueError:
             print("Not a number!")
 
+    def save(self, name: str):
+        """ Saves the current frame. """
+        def func():
+            stream, i = getattr(self, name), getattr(self, name + "_i")
+            Image.fromarray(stream[i]).save(f"{name}_img.png")
+        return func
+
     def change_anime(self):
         """ Load an anime. """
         print(f"Select an anime file")
-        # path = fd.askopenfilename(initialdir=DATA)
-        path = "data/anime/glt/0.mp4"
+        path = config["anime_path"] if "anime_path" in config else \
+            fd.askopenfilename(initialdir=DATA)
         print(f"The file you selected was: {path}")
         self.anime_path = path
         self.anime_btn["text"] = f"anime_path: {path}"
@@ -126,8 +147,8 @@ class Window(tk.Frame):
     def change_manga(self):
         """ Load a manga. """
         print(f"Select an manga folder")
-        # path = fd.askdirectory(initialdir=DATA)
-        path = "preprocess/manga/kon/vol4"
+        path = config["manga_path"] if "manga_path" in config else \
+            fd.askdirectory(initialdir=DATA)
         print(f"The folder you selected was: {path}")
         self.manga_path = path
         self.manga_btn["text"] = f"manga_path: {path}"

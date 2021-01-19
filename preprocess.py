@@ -15,6 +15,7 @@ MANGA_EXT  = "png"
 ANIME_SIZE = 256
 ANIME_EXT  = "mp4"
 ANIME_FPS  = 24
+DURATION = 3*60*ANIME_FPS # search the first five minutes for an intro
 
 def save_mp4(path: str, i: int, ext: str) -> None:
     """ Saves data into the mp4 format. """
@@ -104,6 +105,7 @@ def pillow_transform_anime(global_config: dict, video_config: dict, video):
 transform_anime = torch_transform_anime # which backend to use
 
 def process_manga(args):
+    """ Preprocess manga by cropping, grescaling, and resizing. """
     folder = "/".join(args.path.split("/")[:-1])
     config = json.load(open(f"{folder}/config.json"))
     # create folders with the same structure if they don't exist
@@ -122,6 +124,7 @@ def process_manga(args):
             io.imsave(f"{data_folder}/{i}.{MANGA_EXT}", frames[i])
 
 def process_anime(args):
+    """ Preprocess anime by resizing. """
     folder = "/".join(args.path.split("/")[:-1])
     config = json.load(open(f"{folder}/config.json"))
     # create folders with the same structure if they don't exist
@@ -136,6 +139,35 @@ def process_anime(args):
         # video = transform_anime(config, config[name], pims.open(fname))
         # save_video(f"{data_folder}/{name}.{ANIME_EXT}", video)
         change_size(fname, f"{data_folder}/{name}.{ANIME_EXT}")
+
+def find_intro(args):
+    """ Finds the spot where the image occurs in the video. """
+    folder = "/".join(args.path.split("/")[:-1])
+    config = json.load(open(f"{folder}/config.json"))
+    t, info = args.type == "intro", config[args.type]
+    l, r = info["left"], info["right"]
+    img = np.asarray(Image.open(f"{folder}/{info['image']}")).astype(np.float)
+    for fname in glob.glob(args.path):
+        name = fname.split("/")[-1].split(".")[0]
+        video = pims.open(fname)
+        best, besti = -float("inf"), 0
+        for i, frame in enumerate(video[:DURATION] if t else video[-DURATION:]):
+            frame = frame.astype(np.float)
+            # dot product between two matrices, flattened to a vector
+            k = np.sum(img*frame)/np.sqrt(np.sum(frame*frame))
+            if k > best:
+                best, besti = k, i
+        besti += 0 if t else len(video) - DURATION
+        Image.fromarray(video[besti]).show()
+        print(f"cosine similarity: {best/np.sqrt(np.sum(img*img)):.3f}")
+        ans = input(f"correct for {fname}? (y/n) ")
+        if ans[0].lower() == "y":
+            if name not in config:
+                config[name] = {"exclude": []}
+            config[name]["exclude"].append([besti - l, min(besti + r, len(video))])
+
+    with open(f"{folder}/config.json", "w") as f:
+        json.dump(config, f, indent=4, sort_keys=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Basic data manipulation.")
@@ -154,6 +186,11 @@ if __name__ == "__main__":
     anime = subparsers.add_parser("anime", help="preprocess an anime folder")
     anime.add_argument("-p", "--path", help="folder containing a series of video files")
     anime.set_defaults(func=process_anime)
+
+    search = subparsers.add_parser("search", help="remove intro/outros")
+    search.add_argument("-p", "--path", help="folder containing a series of video files")
+    search.add_argument("-t", "--type", help="intro or outro")
+    search.set_defaults(func=find_intro)
 
     args = parser.parse_args()
 
