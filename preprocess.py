@@ -21,6 +21,11 @@ def save_mp4(path: str, i: int, ext: str) -> None:
     folder = "/".join(path.split("/")[:-1])
     subprocess.call(["ffmpeg", "-i", path, "-codec", "copy", f"{folder}/{i}.{ext}"])
 
+def change_size(path: str, dest: str) -> None:
+    """ Changes the video to ANIME_SIZE x ANIME_SIZE.  """
+    subprocess.call(["ffmpeg", "-i", path, "-vf", f"scale={ANIME_SIZE}:{ANIME_SIZE},setsar=1:1",
+                     "-sws_flags", "bicubic", dest])
+
 def change_ext(args) -> None:
     """ Runs ffmpeg on each file in a specificed folder. """
     for i, path in enumerate(sorted(glob.glob(args.path))):
@@ -69,7 +74,6 @@ def preprocess_anime(global_config: dict, video_config: dict, video):
                   for x in range(r[0], r[1] + 1))
     indexes = sorted(set(range(len(video))) - set(exclude))
     # take every stride-th frame
-    global_config["stride"] = 1000
     video = video[indexes][::global_config["stride"]]
 
     return video
@@ -129,8 +133,9 @@ def process_anime(args):
 
     for fname in glob.glob(args.path):
         name = fname.split("/")[-1].split(".")[0]
-        video = transform_anime(config, config[name], pims.open(fname))
-        save_video(f"{data_folder}/{name}.{ANIME_EXT}", video)
+        # video = transform_anime(config, config[name], pims.open(fname))
+        # save_video(f"{data_folder}/{name}.{ANIME_EXT}", video)
+        change_size(fname, f"{data_folder}/{name}.{ANIME_EXT}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Basic data manipulation.")
