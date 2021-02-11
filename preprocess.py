@@ -119,9 +119,12 @@ def process_manga(args):
     # show image
     # Image.fromarray(frames[14]).show()
 
+    count = config.get("start", 0)
     for i in range(config.get("start", 0), len(frames) - config.get("end", 0)):
         if i not in config.get("exclude", []):
-            io.imsave(f"{data_folder}/{i}.{MANGA_EXT}", frames[i])
+            io.imsave(f"{data_folder}/{i - count}.{MANGA_EXT}", frames[i])
+        else:
+            count += 1
 
 def process_anime(args):
     """ Preprocess anime by resizing. """
@@ -169,6 +172,19 @@ def find_intro(args):
     with open(f"{folder}/config.json", "w") as f:
         json.dump(config, f, indent=4, sort_keys=True)
 
+def reindex(args):
+    """ Make numeric file names contiguous. """
+    # temp file names
+    files = list(glob.glob(args.path))
+    for fname in files:
+        EXT = fname.split("/")[-1].split(".")[1]
+        os.rename(fname, fname + ".temp")
+    # rename in the proper order
+    path = "/".join(args.path.split("/")[:-1])
+    for i, fname in enumerate(sorted(files,
+        key=lambda x: int(x.split("/")[-1].split(".")[0]))):
+        os.rename(fname + ".temp", f"{path}/{i}.{EXT}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Basic data manipulation.")
     parser.add_argument("-v", "--version", action="version", version="data 1.0")
@@ -191,6 +207,10 @@ if __name__ == "__main__":
     search.add_argument("-p", "--path", help="folder containing a series of video files")
     search.add_argument("-t", "--type", help="intro or outro")
     search.set_defaults(func=find_intro)
+
+    index = subparsers.add_parser("index", help="re-index a folder")
+    index.add_argument("-p", "--path", help="folder containing a series of image files")
+    index.set_defaults(func=reindex)
 
     args = parser.parse_args()
 
