@@ -23,7 +23,7 @@ def save_mp4(path: str, i: int, ext: str) -> None:
     subprocess.call(["ffmpeg", "-i", path, "-codec", "copy", f"{folder}/{i}.{ext}"])
 
 def change_size(path: str, dest: str) -> None:
-    """ Changes the video to ANIME_SIZE x ANIME_SIZE.  """
+    """ Changes the video to ANIME_SIZE x ANIME_SIZE. """
     subprocess.call(["ffmpeg", "-i", path, "-vf", f"scale={ANIME_SIZE}:{ANIME_SIZE},setsar=1:1",
                      "-sws_flags", "bicubic", dest])
 
