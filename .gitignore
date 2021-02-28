@@ -1,6 +1,11 @@
+# conda virtual environment
+venv
+# data
 data
 preprocess
+# StyleGAN folders
 train
-venv
+out
+# configuration
 config.json
 

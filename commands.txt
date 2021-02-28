@@ -15,3 +15,6 @@ python stylegan2-ada-pytorch/dataset_tool.py --source preprocess/source --dest s
 # lower batch size if out of memory
 CUDA_VISIBLE_DEVICES=1 python stylegan2-ada-pytorch/train.py --outdir=train --gpus=1 --data=preprocess/stylegan.zip --resume=ffhq256 --cfg=auto
 
+# generate images
+python stylegan2-ada-pytorch/generate.py --outdir=out --network=model --trunc=1 --seeds=0-10
+
