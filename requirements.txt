@@ -55,6 +55,7 @@ nbconvert
 nbformat
 nest-asyncio
 networkx
+ninja==1.10.0.post2
 nltk
 notebook
 numpy
