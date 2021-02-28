@@ -12,5 +12,6 @@ ffmpeg -i 0.mp4 -vf scale=256:256,setsar=1:1 test.mp4
 python stylegan2-ada-pytorch/dataset_tool.py --source preprocess/source --dest stylegan.zip
 
 # training stylegan
+# lower batch size if out of memory
 CUDA_VISIBLE_DEVICES=1 python stylegan2-ada-pytorch/train.py --outdir=train --gpus=1 --data=preprocess/stylegan.zip --resume=ffhq256 --cfg=auto
 
