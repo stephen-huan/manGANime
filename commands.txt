@@ -1,5 +1,5 @@
 # video to pictures (1 fps)
-ffmpeg -i video.webm -vf fps=1 image-%03d.png
+ffmpeg -i video.webm -vf fps=1 image-%05d.png
 
 # picture to videos 
 ffmpeg -framerate 1 -i image-%03d.png video.webm
@@ -7,3 +7,8 @@ ffmpeg -framerate 1 -i image-%03d.png video.webm
 # resize video
 ffmpeg -i 0.mp4 -vf scale=256:256,setsar=1:1 test.mp4
 
+# generate stylegan database 
+python stylegan2-ada-pytorch/dataset_tool.py --source preprocess/source --dest stylegan.zip
+
+# training stylegan
+python stylegan2-ada-pytorch/train.py --outdir=train --gpus=1 --data=preprocess/stylegan.zip --resume=ffhq256 --cfg=auto
