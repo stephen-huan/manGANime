@@ -88,7 +88,7 @@ train = Dataset(PATH, **params)
 load_params = {
     "batch_size": 64,
     "shuffle": True,
-    "num_workers": 10
+    # "num_workers": 10
 }
 train_gen = data.DataLoader(train, **load_params)
 

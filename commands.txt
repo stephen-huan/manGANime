@@ -18,3 +18,9 @@ CUDA_VISIBLE_DEVICES=1 python stylegan2-ada-pytorch/train.py --outdir=train --gp
 # generate images
 python stylegan2-ada-pytorch/generate.py --outdir=out --network=model --trunc=1 --seeds=0-10
 
+# project image
+python stylegan2_ada_pytorch/projector.py --outdir=out --network=train/00015-full_data-mirror-auto1-resumeffhq256/network-snapshot-006200.pkl --target=img.png
+
+# project video
+PYTHONPATH=~/programs/manGANime/stylegan2_ada_pytorch/ python path.py project --network train/00015-full_data-mirror-auto1-resumeffhq256/network-snapshot-006200.pkl --path preprocess/vid.mp4 
+
