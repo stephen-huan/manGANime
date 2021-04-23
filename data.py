@@ -3,7 +3,9 @@ import numpy as np
 from PIL import Image
 import pims
 import torch
+import torch.nn as nn
 from torch.utils import data
+from torchvision import transforms
 
 torch.manual_seed(0)          # set seed
 PATH = "preprocess/anime/glt" # folder containing video files and json config
@@ -11,14 +13,21 @@ MANGA = "preprocess/manga"    # folder containing manga
 VIDEO_EXT = "mp4"             # format for anime
 IMAGE_EXT = "png"             # format for manga
 
+def to_vector(img: np.array) -> torch.Tensor:
+    """ Converts a 2D image into a 1D tensor. """
+    img = transforms.functional.to_tensor(img)
+    m = nn.AvgPool2d(16)
+    return transforms.functional.rgb_to_grayscale(m(img)).flatten()
+
 class Dataset(data.Dataset):
 
     """ Custom dataset containing manga pages and anime frames. """
 
-    def __init__(self, path: str,
+    def __init__(self, path: str, vector: bool,
                  stride: int, window: int, num_input: int, num_output: int):
         self.path, self.stride, self.window, self.num_input, self.num_output = \
              path,      stride,      window,      num_input,      num_output
+        self.vector = vector
         with open(path + "/config.json") as f:
             self.config = json.load(f)
 
@@ -76,6 +85,11 @@ class Dataset(data.Dataset):
         #     Image.fromarray(page).show()
         # input()
 
+        # vectorize input
+        if self.vector:
+            u, v = to_vector(prev[0]), to_vector(page_tensor)
+            X, y = torch.cat((u, v)), torch.tensor(out[0])
+
         return X, y
 
 params = {
@@ -84,9 +98,9 @@ params = {
     "num_input": 1,  # how many frames to condition model on
     "num_output": 1, # how many frames to output
 }
-train = Dataset(PATH, **params)
+train = Dataset(PATH, True, **params)
 load_params = {
-    "batch_size": 64,
+    "batch_size": 16,
     "shuffle": True,
     # "num_workers": 10
 }

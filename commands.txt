@@ -9,18 +9,21 @@ ffmpeg -i 0.mp4 -vf scale=256:256,setsar=1:1 test.mp4
 
 # generate stylegan database 
 # use 12 fps (skip every 2nd frame) because of heavy redundancy
-python stylegan2-ada-pytorch/dataset_tool.py --source preprocess/source --dest stylegan.zip
+python stylegan2_ada_pytorch/dataset_tool.py --source preprocess/source --dest stylegan.zip
 
 # training stylegan
 # lower batch size if out of memory
-CUDA_VISIBLE_DEVICES=1 python stylegan2-ada-pytorch/train.py --outdir=train --gpus=1 --data=preprocess/stylegan.zip --resume=ffhq256 --cfg=auto
+CUDA_VISIBLE_DEVICES=1 python stylegan2_ada_pytorch/train.py --outdir=train --gpus=1 --data=preprocess/stylegan.zip --resume=ffhq256 --cfg=auto
 
 # generate images
-python stylegan2-ada-pytorch/generate.py --outdir=out --network=model --trunc=1 --seeds=0-10
+python stylegan2_ada_pytorch/generate.py --outdir=out --network=model --trunc=1 --seeds=0-10
 
 # project image
 python stylegan2_ada_pytorch/projector.py --outdir=out --network=train/00015-full_data-mirror-auto1-resumeffhq256/network-snapshot-006200.pkl --target=img.png
 
 # project video
 PYTHONPATH=~/programs/manGANime/stylegan2_ada_pytorch/ python path.py project --network train/00015-full_data-mirror-auto1-resumeffhq256/network-snapshot-006200.pkl --path preprocess/vid.mp4 
+
+# re-train stylegan
+time CUDA_VISIBLE_DEVICES=1 PYTHONPATH=~/programs/manGANime/stylegan2_ada_pytorch/ python train.py --network train/00015-full_data-mirror-auto1-resumeffhq256/network-snapshot-006200.pkl | tee out.txt
 
