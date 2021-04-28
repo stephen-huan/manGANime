@@ -33,5 +33,6 @@ PYTHONPATH=~/programs/manGANime/stylegan2_ada_pytorch/ python train.py test --ne
 # generate video
 PYTHONPATH=~/programs/manGANime/stylegan2_ada_pytorch/ python path.py generate --path preprocess/vid.mp4 --image preprocess/img.png  --network train/model0_3999.net --frames 8 
 
-
+# backprop for image generation
+PYTHONPATH=~/programs/manGANime/stylegan2_ada_pytorch/ python backprop.py --network train/00015-full_data-mirror-auto1-resumeffhq256/network-snapshot-006200.pkl
 
