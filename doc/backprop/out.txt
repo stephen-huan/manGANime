@@ -1,0 +1,20 @@
+epoch: 0099, loss: 3.687, p: 0.040
+took 2.096510171890259 seconds
+epoch: 0199, loss: 1.275, p: 0.302
+took 1.5298404693603516 seconds
+epoch: 0299, loss: 0.449, p: 0.642
+took 1.5443634986877441 seconds
+epoch: 0399, loss: 0.225, p: 0.799
+took 1.533905029296875 seconds
+epoch: 0499, loss: 0.142, p: 0.868
+took 1.5338995456695557 seconds
+epoch: 0599, loss: 0.101, p: 0.904
+took 1.5353810787200928 seconds
+epoch: 0699, loss: 0.077, p: 0.926
+took 1.528986930847168 seconds
+epoch: 0799, loss: 0.061, p: 0.941
+took 1.5289816856384277 seconds
+epoch: 0899, loss: 0.050, p: 0.952
+took 1.5300250053405762 seconds
+epoch: 0999, loss: 0.041, p: 0.959
+took 1.5854005813598633 seconds
